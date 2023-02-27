@@ -1,0 +1,73 @@
+--6) ¿Cuáles son los 5 clientes que han transferido menos dinero y cuánto?
+
+SELECT b.id_cliente_origen, sum(b.cuantia) as total_transferido
+FROM public."Balance" b JOIN public."Detalle_transacciones" d 
+ON (b.t_id = d.t_id)
+WHERE d.tipo = 'TRANSFER' and b.cuantia <> 0
+GROUP BY id_cliente_origen
+ORDER BY total_transferido asc
+limit 5 
+
+--7)¿Cuáles son los 10 clientes que han recibido más dinero y cuánto?
+
+SELECT b.id_cliente_destino, round(CAST(SUM(b.cuantia) as numeric), 2) as total_transferido
+FROM public."Balance" b JOIN public."Detalle_transacciones" d 
+ON (b.t_id = d.t_id)
+WHERE d.tipo = 'TRANSFER' 
+GROUP BY id_cliente_destino
+ORDER BY total_transferido desc
+limit 10
+
+--8)¿Cuáles son los 3 clientes con mejor balance a lo largo del mes (aquellos que al restarle al dinero recibido el dinero enviado se quedan con un mejor resultado) y cuál ha sido su balance?
+
+WITH dinero_recibido AS(
+SELECT b.id_cliente_destino, 
+cuantia as total_recibido
+FROM public."Balance" b JOIN public."Detalle_transacciones" d 
+ON (b.t_id = d.t_id)
+WHERE fecha <= date('2022-09-30') AND d.tipo= 'TRANSFER'
+),
+dinero_enviado AS(
+SELECT b.id_cliente_origen, 
+cuantia as total_enviado 
+FROM public."Balance" b JOIN public."Detalle_transacciones" d 
+ON (b.t_id = d.t_id)
+WHERE fecha < date('2022-09-30') AND d.tipo= 'TRANSFER'
+)
+SELECT 
+r.id_cliente_destino as cliente,
+round(CAST(SUM(r.total_recibido) - SUM(e.total_enviado) AS numeric),2) AS balance
+FROM dinero_recibido r JOIN dinero_enviado e ON (r.id_cliente_destino = e.id_cliente_origen)
+GROUP BY r.id_cliente_destino
+ORDER BY balance desc
+limit 3
+
+--9)¿Cuáles son los 3 clientes con peor balance a lo largo de todo el mes y cuál ha sido?
+
+WITH dinero_recibido AS(
+SELECT b.id_cliente_destino, 
+cuantia as total_recibido
+FROM public."Balance" b JOIN public."Detalle_transacciones" d 
+ON (b.t_id = d.t_id)
+WHERE fecha < date('2022-09-30') AND d.tipo= 'TRANSFER'
+),
+dinero_enviado AS(
+SELECT b.id_cliente_origen, 
+cuantia as total_enviado 
+FROM public."Balance" b JOIN public."Detalle_transacciones" d 
+ON (b.t_id = d.t_id)
+WHERE fecha <= date('2022-09-30') AND d.tipo= 'TRANSFER'
+)
+SELECT 
+r.id_cliente_destino as cliente,
+round(CAST(SUM(r.total_recibido) - SUM(e.total_enviado) AS numeric),2) AS balance
+FROM dinero_recibido r JOIN dinero_enviado e ON (r.id_cliente_destino = e.id_cliente_origen)
+GROUP BY r.id_cliente_destino
+ORDER BY balance ASC
+limit 3
+
+--10)¿Cuántas transacciones fraudulentas se han producido?
+
+SELECT count(t_id) as cantidad_fraudes
+FROM public."Fraude" 
+where es_fraude = 'True'
